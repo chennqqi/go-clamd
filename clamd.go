@@ -264,7 +264,6 @@ func (c *Clamd) ScanStream(r io.Reader, abort chan bool) (chan *ScanResult, erro
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
 
 	err = conn.sendCommand("INSTREAM")
 	if err != nil {
