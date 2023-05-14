@@ -1,9 +1,7 @@
 package clamd
 
 import (
-	"io/ioutil"
 	"bytes"
-	"io"
 	"os"
 	"testing"
 )
@@ -14,7 +12,7 @@ var (
 
 func init() {
 	if s := os.Getenv("CLAMD_SOCKET"); s != "" {
-		socket = clamdSocket
+		clamdSocket = s
 	}
 }
 
@@ -30,7 +28,7 @@ func TestScanStreamMemoryLeak(t *testing.T) {
 			t.Fatal(err)
 		}
 		r := <-ch
-		if r.Status!=RES_OK {
+		if r.Status != RES_FOUND {
 			t.Fatal("status", r)
 		}
 	}
@@ -38,23 +36,24 @@ func TestScanStreamMemoryLeak(t *testing.T) {
 
 func TestScanFileMemoryLeak(t *testing.T) {
 	c := NewClamd(clamdSocket)
-	const maxsocket = 20000
-	f,err := os.CreateTemp(".", "test-*"))
-	if err!=nil {
+	const maxLoop = 20000
+
+	f, err := os.CreateTemp("./", "test-*")
+	if err != nil {
 		t.Fatal(err)
 	}
 	f.Write(EICAR)
 	f.Close()
 	defer os.Remove(f.Name())
-	
-	for i := 0; ; i++ {
-		ch,err := c.ScanFile(f.Name())
+
+	for i := 0; i < maxLoop; i++ {
+		ch, err := c.ScanFile(f.Name())
 		if err != nil {
-			t.Fatal(err)
+			t.Fatal("ScanFile", err)
 		}
-				r := <-ch
-		if r.Status!=RES_OK {
-			t.Fatal("status", r)
+		r := <-ch
+		if r.Status != RES_FOUND {
+			t.Fatal("status", f.Name(), r)
 		}
 	}
 }
