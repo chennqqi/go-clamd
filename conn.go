@@ -33,7 +33,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -81,26 +80,23 @@ func (conn *CLAMDConn) sendChunk(data []byte) error {
 	return err
 }
 
-func (c *CLAMDConn) readResponse() (chan *ScanResult, *sync.WaitGroup, error) {
-	var wg sync.WaitGroup
-
-	wg.Add(1)
+func (c *CLAMDConn) readResponse() (chan *ScanResult, <-chan struct{}, error) {
 	reader := bufio.NewReader(c)
 	ch := make(chan *ScanResult)
+	waitCh := make(chan struct{})
 
 	go func() {
-		defer func() {
-			close(ch)
-			wg.Done()
-		}()
+		defer close(ch)
 
 		for {
 			line, err := reader.ReadString('\n')
 			if err == io.EOF {
+				close(waitCh)
 				return
 			}
 
 			if err != nil {
+				close(waitCh)
 				return
 			}
 
@@ -109,7 +105,7 @@ func (c *CLAMDConn) readResponse() (chan *ScanResult, *sync.WaitGroup, error) {
 		}
 	}()
 
-	return ch, &wg, nil
+	return ch, waitCh, nil
 }
 
 func parseResult(line string) *ScanResult {

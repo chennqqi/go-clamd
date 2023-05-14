@@ -64,7 +64,6 @@ type ScanResult struct {
 var EICAR = []byte(`X5O!P%@AP[4\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*`)
 
 func (c *Clamd) newConnection() (conn *CLAMDConn, err error) {
-
 	var u *url.URL
 
 	if u, err = url.Parse(c.address); err != nil {
@@ -88,6 +87,7 @@ func (c *Clamd) simpleCommand(command string) (chan *ScanResult, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer conn.Close()
 
 	err = conn.sendCommand(command)
 	if err != nil {
@@ -97,7 +97,7 @@ func (c *Clamd) simpleCommand(command string) (chan *ScanResult, error) {
 	ch, wg, err := conn.readResponse()
 
 	go func() {
-		wg.Wait()
+		<-wg
 		conn.Close()
 	}()
 
@@ -258,8 +258,15 @@ the actual chunk. Streaming is terminated by sending a zero-length chunk. Note:
 do not exceed StreamMaxLength as defined in clamd.conf, otherwise clamd will
 reply with INSTREAM size limit exceeded and close the connection
 */
+// TODO: https://github.com/dutchcoders/go-clamd/issues/9
 func (c *Clamd) ScanStream(r io.Reader, abort chan bool) (chan *ScanResult, error) {
 	conn, err := c.newConnection()
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	err = conn.sendCommand("INSTREAM")
 	if err != nil {
 		return nil, err
 	}
@@ -274,8 +281,6 @@ func (c *Clamd) ScanStream(r io.Reader, abort chan bool) (chan *ScanResult, erro
 		conn.Close()
 	}()
 
-	conn.sendCommand("INSTREAM")
-
 	for {
 		buf := make([]byte, CHUNK_SIZE)
 
@@ -287,7 +292,6 @@ func (c *Clamd) ScanStream(r io.Reader, abort chan bool) (chan *ScanResult, erro
 		if err != nil {
 			break
 		}
-
 	}
 
 	err = conn.sendEOF()
@@ -296,9 +300,8 @@ func (c *Clamd) ScanStream(r io.Reader, abort chan bool) (chan *ScanResult, erro
 	}
 
 	ch, wg, err := conn.readResponse()
-
 	go func() {
-		wg.Wait()
+		<-wg
 		conn.Close()
 	}()
 
