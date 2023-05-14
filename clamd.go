@@ -86,10 +86,11 @@ func (c *Clamd) simpleCommand(command string) (chan *ScanResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
 
 	err = conn.sendCommand(command)
 	if err != nil {
+		// fmt.Println("send close")
+		conn.Close()
 		return nil, err
 	}
 
@@ -97,6 +98,7 @@ func (c *Clamd) simpleCommand(command string) (chan *ScanResult, error) {
 
 	go func() {
 		<-wg
+		// fmt.Println("system close")
 		conn.Close()
 	}()
 
@@ -276,6 +278,7 @@ func (c *Clamd) ScanStream(r io.Reader, abort chan bool) (chan *ScanResult, erro
 				break
 			}
 		}
+		// fmt.Println("custom close")
 		conn.Close()
 	}()
 
