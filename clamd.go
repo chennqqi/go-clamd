@@ -52,6 +52,7 @@ type Stats struct {
 }
 
 type ScanResult struct {
+	Err         error
 	Raw         string
 	Description string
 	Path        string
@@ -116,6 +117,9 @@ func (c *Clamd) Ping() error {
 
 	select {
 	case s := (<-ch):
+		if s.Err != nil {
+			return s.Err
+		}
 		switch s.Raw {
 		case "PONG":
 			return nil

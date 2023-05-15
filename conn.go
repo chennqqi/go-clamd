@@ -91,11 +91,13 @@ func (c *CLAMDConn) readResponse() (chan *ScanResult, <-chan struct{}, error) {
 		for {
 			line, err := reader.ReadString('\n')
 			if err == io.EOF {
+				ch <- &ScanResult{Err: err}
 				close(waitCh)
 				return
 			}
 
 			if err != nil {
+				ch <- &ScanResult{Err: err}
 				close(waitCh)
 				return
 			}
